@@ -84,7 +84,7 @@ class LogoutHandler(BaseHandler):
         """
         if self.current_user is None:
             self.log.debug("Got no user after redirect from code-server: redirected to logout url.")
-            self.redirect(self.settings['logout_url'], permanent=True)
+            self.redirect(self.settings['logout_url'], permanent=False)
         await self.default_handle_logout()
         await self.handle_logout()
         await self.render_logout_page()
