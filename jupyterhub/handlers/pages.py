@@ -476,6 +476,7 @@ class TokenPageHandler(BaseHandler):
     """Handler for page requesting new API tokens"""
 
     @web.authenticated
+    @admin_only
     async def get(self):
         never = datetime(1900, 1, 1)
 
