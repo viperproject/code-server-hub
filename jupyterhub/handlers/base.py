@@ -157,6 +157,10 @@ class BaseHandler(RequestHandler):
         return self.settings.get('authenticator', None)
 
     @property
+    def guest_authenticator(self):
+        return self.settings.get('guest_authenticator', None)
+
+    @property
     def oauth_provider(self):
         return self.settings['oauth_provider']
 
@@ -595,6 +599,9 @@ class BaseHandler(RequestHandler):
     def authenticate(self, data):
         return maybe_future(self.authenticator.get_authenticated_user(self, data))
 
+    def guest_authenticate(self, data):
+        return maybe_future(self.guest_authenticator.get_authenticated_user(self, data))
+
     def get_next_url(self, user=None, default=None):
         """Get the next_url for login redirect
 
@@ -759,6 +766,28 @@ class BaseHandler(RequestHandler):
         """Login a user"""
         auth_timer = self.statsd.timer('login.authenticate').start()
         authenticated = await self.authenticate(data)
+        auth_timer.stop(send=False)
+
+        if authenticated:
+            user = await self.auth_to_user(authenticated)
+            self.set_login_cookie(user)
+            self.set_server_cookie(user)
+            self.statsd.incr('login.success')
+            self.statsd.timing('login.authenticate.success', auth_timer.ms)
+            self.log.info("User logged in: %s", user.name)
+            user._auth_refreshed = time.monotonic()
+            return user
+        else:
+            self.statsd.incr('login.failure')
+            self.statsd.timing('login.authenticate.failure', auth_timer.ms)
+            self.log.warning(
+                "Failed login for %s", (data or {}).get('username', 'unknown user')
+            )
+
+    async def login_guest_user(self, data=None):
+        """Login a user"""
+        auth_timer = self.statsd.timer('login.authenticate').start()
+        authenticated = await self.guest_authenticate(data)
         auth_timer.stop(send=False)
 
         if authenticated:

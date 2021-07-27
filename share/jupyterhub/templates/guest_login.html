@@ -1,0 +1,22 @@
+{% extends "page.html" %}
+{% if announcement_home %}
+  {% set announcement = announcement_home %}
+{% endif %}
+
+{% block main %} 
+<script src="https://hcaptcha.com/1/api.js" async defer></script>
+<script> function submit() {
+  const form = document.getElementById("captcha");
+  form.submit();
+}
+</script>
+{% if login_error %}
+<p class="login_error">
+  {{login_error}}
+</p>
+{% endif %}
+<form action="{{guest_login_url}}?next={{next}}" method="post" role="form" id="captcha">
+    <div class="h-captcha" data-sitekey='{{hcaptcha_site_key}}' data-callback=submit></div>
+</form> 
+
+{% endblock main %} 

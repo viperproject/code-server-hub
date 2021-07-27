@@ -6,12 +6,16 @@ import pipes
 import re
 import sys
 import warnings
+import uuid
+import json
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from shutil import which
 from subprocess import PIPE
 from subprocess import Popen
 from subprocess import STDOUT
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+
 
 try:
     import pamela
@@ -24,7 +28,7 @@ from tornado.concurrent import run_on_executor
 from traitlets.config import LoggingConfigurable
 from traitlets import Bool, Integer, Set, Unicode, Dict, Any, default, observe
 
-from .handlers.login import LoginHandler
+from .handlers.login import GuestLoginHandler, LoginHandler
 from .utils import maybe_future, url_path_join
 from .traitlets import Command
 
@@ -596,6 +600,8 @@ class Authenticator(LoggingConfigurable):
                 list of ``('/url', Handler)`` tuples passed to tornado.
                 The Hub prefix is added to any URLs.
         """
+        if app.guest_login:
+            return [('/login', LoginHandler), (app.guest_login_url, GuestLoginHandler)]
         return [('/login', LoginHandler)]
 
 
@@ -1007,3 +1013,65 @@ class DummyAuthenticator(Authenticator):
                 return data['username']
             return None
         return data['username']
+
+
+class GuestAuthenticator(Authenticator):
+    """An Authenticator designed to log in as a guest with a captcha"""
+
+    site_key = Unicode(
+        config=True,
+        help="""
+        Set the hcaptcha site_key through this option.
+        """,
+    )
+
+    verify_url = Unicode(
+        config=True,
+        help="""
+        Set the URL where the token gets verified.
+        """,
+    )
+
+    secret = Unicode(
+        config=True,
+        help="""
+        Set the hcaptcha account secret here.
+        """,
+    )
+
+    disable_captcha = Bool(
+        False,
+        config=True,
+        help="""
+        The use of captcha can be disabled for Testing. DO NOT USE THIS IN PRODUCTION!""",
+    )
+
+    async def gen_username(self, name='web-ide'):
+        username = name + '-guest-' + uuid.uuid4()
+        if username.startswith('-'):
+            username=username.lstrip('-')
+        return username
+
+    async def authenticate(self, handler, data):
+        username = await self.gen_username()
+        if self.disable_captcha:
+            return username
+        
+        client = AsyncHTTPClient()
+
+        client_resp = data['h-captcha-response']
+        
+        body = "response=%s&secret=%s&sitekey=%s", client_resp, self.secret, self.site_key
+        req = HTTPRequest(
+            self.verify_url,
+            method="POST",
+            body=body,
+        )
+
+        resp_json = json.load(await client.fetch(req))
+
+        if resp_json['success']:
+            return username
+
+        return None
+

@@ -85,6 +85,11 @@
 </form>
 {% endif %}
 {% endblock login_container %}
+{% if guest_login %}
+<button type="button" class='btn btn-jupyter btn-lg' href='{{guest_login_url}}'>
+  Sign in as a Guest
+</button>
+{% endif %}
 </div>
 {% endblock login %}
 

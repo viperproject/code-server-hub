@@ -99,6 +99,7 @@ class LoginHandler(BaseHandler):
             "username": username,
             "login_error": login_error,
             "login_url": self.settings['login_url'],
+            "guest_login_url": self.settings['guest_login_url'],
             "authenticator_login_url": url_concat(
                 self.authenticator.login_url(self.hub.base_url),
                 {'next': self.get_argument('next', '')},
@@ -165,6 +166,54 @@ class LoginHandler(BaseHandler):
             )
             self.finish(html)
 
+
+class GuestLoginHandler(BaseHandler):
+    """Render the login page for guests"""
+
+    def _render(self, login_error=None):
+        context = {
+            "next": url_escape(self.get_argument('next', default='')),
+            "guest_login": self.settings['guest_login'],
+            "guest_login_url": self.settings['guest_login_url'],
+            "login_error": login_error,
+            "hcaptcha_site_key": self.guest_authenticator.sitekey,
+        }
+        return self.render_template(
+            'guest_login.html',
+            **context,
+        )
+
+    async def get(self):
+        self.statsd.incr('login.request')
+        user = self.current_user
+        if user:
+            # set new login cookie
+            # because single-user cookie may have been cleared or incorrect
+            self.set_login_cookie(user)
+            self.set_server_cookie(user)
+            self.redirect(self.get_next_url(user), permanent=False)
+        else:
+            self.finish(await self._render())
+
+    async def post(self):
+        data = {}
+        for arg in self.request.arguments:
+            data[arg] = self.get_argument(arg, strip=False)
+        
+        auth_timer = self.statsd.timer('login.authenticate').start()
+        user = await self.login_guest_user(data)
+        auth_timer.stop(send=False)
+
+        if user:
+            # register current user for subsequent requests to user (e.g. logging the request)
+            self._jupyterhub_user = user
+            self.redirect(self.get_next_url(user))
+        else:
+            html = await self._render(
+                login_error='Login attempt failed. Please try again.'
+            )
+            self.finish(html)
+            
 
 # /login renders the login page or the "Login with..." link,
 # so it should always be registered.

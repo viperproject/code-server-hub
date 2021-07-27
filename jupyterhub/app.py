@@ -102,7 +102,7 @@ from .metrics import RUNNING_SERVERS
 from .metrics import TOTAL_USERS
 
 # classes for config
-from .auth import Authenticator, PAMAuthenticator
+from .auth import Authenticator, PAMAuthenticator, GuestAuthenticator
 from .crypto import CryptKeeper
 from .spawner import Spawner, LocalProcessSpawner
 from .objects import Hub, Server
@@ -978,6 +978,34 @@ class JupyterHub(Application):
     @default('authenticator')
     def _authenticator_default(self):
         return self.authenticator_class(parent=self, db=self.db)
+
+    guest_authenticator_class = EntryPointType(
+        default_value=GuestAuthenticator,
+        klass=Authenticator,
+        entry_point_group="jupyterhub.authenticators",
+        help="""Class for authenticating users with a captcha.
+        This should be a subclass of :class:`jupyterhub.auth.Authenticator`
+        that is intended to allow guest login with a captcha.
+        """,
+    ).tag(config=True)
+
+    guest_authenicator = Instance(Authenticator)
+
+    @default('guest_authenticator')
+    def _guest_authenticator_default(self):
+        return self.guest_authenticator_class(parent=self, db=self.db)
+
+    guest_login = Bool(
+        False,
+        help="""
+        Turn on guest login possibility.
+        """
+    ).tag(config=True)
+
+    guest_login_url = Unicode(
+        '/guest/login',
+        help="""The path that gets appended to the prefix where the guest login is located.""",
+    ).tag(config=True)
 
     implicit_spawn_seconds = Float(
         0,
