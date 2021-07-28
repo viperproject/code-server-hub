@@ -18,6 +18,7 @@ from ..metrics import SERVER_POLL_DURATION_SECONDS
 from ..metrics import ServerPollStatus
 from ..pagination import Pagination
 from ..utils import admin_only
+from ..scopes import needs_scope
 from ..utils import maybe_future
 from ..utils import url_path_join
 from .base import BaseHandler
@@ -455,7 +456,9 @@ class AdminHandler(BaseHandler):
     """Render the admin page."""
 
     @web.authenticated
-    @admin_only
+    @needs_scope('users')  # stacked decorators: all scopes must be present
+    @needs_scope('admin:users')
+    @needs_scope('admin:servers')
     async def get(self):
         pagination = Pagination(url=self.request.uri, config=self.config)
         page, per_page, offset = pagination.get_page_args(self)
@@ -541,7 +544,9 @@ class TokenPageHandler(BaseHandler):
     """Handler for page requesting new API tokens"""
 
     @web.authenticated
-    @admin_only
+    @needs_scope('users')  # stacked decorators: all scopes must be present
+    @needs_scope('admin:users')
+    @needs_scope('admin:servers')
     async def get(self):
         never = datetime(1900, 1, 1)
 
