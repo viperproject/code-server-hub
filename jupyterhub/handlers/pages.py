@@ -476,7 +476,9 @@ class TokenPageHandler(BaseHandler):
     """Handler for page requesting new API tokens"""
 
     @web.authenticated
-    @admin_only
+    @needs_scope('users')  # stacked decorators: all scopes must be present
+    @needs_scope('admin:users')
+    @needs_scope('admin:servers')
     async def get(self):
         never = datetime(1900, 1, 1)
 
