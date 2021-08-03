@@ -43,7 +43,7 @@ from traitlets.config import LoggingConfigurable
 from . import utils
 from .metrics import CHECK_ROUTES_DURATION_SECONDS
 from .metrics import PROXY_POLL_DURATION_SECONDS
-from .objects import Server
+from .objects import Hub, Server
 from .utils import exponential_backoff
 from .utils import url_path_join
 from jupyterhub.traitlets import Command
@@ -319,7 +319,7 @@ class Proxy(LoggingConfigurable):
         )
         await self.add_route(
             self.get_logout_routespec(spawner=spawner),
-            url_path_join(spawner.public_domain, '/hub/logout'),
+            'http://hub:8081/hub/logout',
             {'user': user.name, 'server_name': server_name, 'target': 'logout'},
         )
 
