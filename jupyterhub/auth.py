@@ -279,6 +279,78 @@ class Authenticator(LoggingConfigurable):
         """,
     )
 
+    guest_login = Bool(
+        False,
+        help="""
+        Turn on guest login possibility.
+        """
+    ).tag(config=True)
+
+    guest_login_url = Unicode(
+        '/guest/login',
+        help="""The path that gets appended to the prefix where the guest login is located.""",
+    ).tag(config=True)
+
+    def get_guest_login_url(self, base_url):
+        return url_path_join(base_url, self.guest_login_url)
+
+    site_key = Unicode(
+        config=True,
+        help="""
+        Set the hcaptcha site_key through this option.
+        """,
+    )
+
+    verify_url = Unicode(
+        config=True,
+        help="""
+        Set the URL where the token gets verified.
+        """,
+    )
+
+    secret = Unicode(
+        config=True,
+        help="""
+        Set the hcaptcha account secret here.
+        """,
+    )
+
+    disable_captcha = Bool(
+        False,
+        config=True,
+        help="""
+        The use of captcha can be disabled for Testing. DO NOT USE THIS IN PRODUCTION!""",
+    )
+
+    async def gen_username(self, name='web-ide'):
+        username = name + '-guest-' + str(uuid.uuid4())
+        if username.startswith('-'):
+            username=username.lstrip('-')
+        return username
+
+    async def guest_authenticate(self, handler, data):
+        username = await self.gen_username()
+        if self.disable_captcha:
+            return username
+        
+        client = AsyncHTTPClient()
+
+        client_resp = data['h-captcha-response']
+        
+        body = "response=%s&secret=%s&sitekey=%s", client_resp, self.secret, self.site_key
+        req = HTTPRequest(
+            self.verify_url,
+            method="POST",
+            body=body,
+        )
+
+        resp_json = json.load(await client.fetch(req))
+
+        if resp_json['success']:
+            return username
+
+        return None
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -375,7 +447,10 @@ class Authenticator(LoggingConfigurable):
         .. versionchanged:: 0.8
             return dict instead of username
         """
-        authenticated = await maybe_future(self.authenticate(handler, data))
+        if guest:
+            authenticated = await maybe_future(self.guest_authenticate(handler, data))
+        else:
+            authenticated = await maybe_future(self.authenticate(handler, data))
         if authenticated is None:
             return
         if isinstance(authenticated, dict):

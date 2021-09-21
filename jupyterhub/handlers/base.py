@@ -617,7 +617,7 @@ class BaseHandler(RequestHandler):
         return maybe_future(self.authenticator.get_authenticated_user(self, data))
 
     def guest_authenticate(self, data):
-        return maybe_future(self.guest_authenticator.get_authenticated_user(self, data))
+        return maybe_future(self.authenticator.get_authenticated_user(self, data, True))
 
     def get_next_url(self, user=None, default=None):
         """Get the next_url for login redirect

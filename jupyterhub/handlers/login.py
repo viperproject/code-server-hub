@@ -99,6 +99,8 @@ class LoginHandler(BaseHandler):
             "username": username,
             "login_error": login_error,
             "login_url": self.settings['login_url'],
+            "guest_login": self.authenticator.guest_login,
+            "guest_login_url": self.authenticator.guest_login_url,
             "guest_login_url": self.settings['guest_login_url'],
             "authenticator_login_url": url_concat(
                 self.authenticator.login_url(self.hub.base_url),
@@ -173,10 +175,11 @@ class GuestLoginHandler(BaseHandler):
     def _render(self, login_error=None):
         context = {
             "next": url_escape(self.get_argument('next', default='')),
-            "guest_login": self.settings['guest_login'],
-            "guest_login_url": self.settings['guest_login_url'],
+            "guest_login": self.authenticator.guest_login,
+            "guest_login_url": self.authenticator.get_guest_login_url(self.hub.base_url),
             "login_error": login_error,
-            "hcaptcha_site_key": self.guest_authenticator.sitekey,
+            "hcaptcha_site_key": self.authenticator.site_key,
+            "disable_captcha": self.authenticator.disable_captcha,
         }
         return self.render_template(
             'guest_login.html',
@@ -196,6 +199,7 @@ class GuestLoginHandler(BaseHandler):
             self.finish(await self._render())
 
     async def post(self):
+        self.log.warn("recieved guest login request")
         data = {}
         for arg in self.request.arguments:
             data[arg] = self.get_argument(arg, strip=False)
@@ -213,9 +217,9 @@ class GuestLoginHandler(BaseHandler):
                 login_error='Login attempt failed. Please try again.'
             )
             self.finish(html)
-            
+     
 
 # /login renders the login page or the "Login with..." link,
 # so it should always be registered.
 # /logout clears cookies.
-default_handlers = [(r"/login", LoginHandler), (r"/logout", LogoutHandler)]
+default_handlers = [(r"/login", LoginHandler), (r"/logout", LogoutHandler), (r"/guest/login", GuestLoginHandler)]

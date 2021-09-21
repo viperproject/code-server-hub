@@ -3,7 +3,13 @@
   {% set announcement = announcement_home %}
 {% endif %}
 
+{% block login_widget %}
+{% endblock %}
+
 {% block main %} 
+
+<div id="login-main" class="container">
+{% block login_container %}
 <script src="https://hcaptcha.com/1/api.js" async defer></script>
 <script> function submit() {
   const form = document.getElementById("captcha");
@@ -15,8 +21,14 @@
   {{login_error}}
 </p>
 {% endif %}
-<form action="{{guest_login_url}}?next={{next}}" method="post" role="form" id="captcha">
-    <div class="h-captcha" data-sitekey='{{hcaptcha_site_key}}' data-callback=submit></div>
+<form action="{{guest_login_url}}?next={{next}}" method="POST" role="form" id="captcha">
+  {% if disable_captcha %}
+  <button class="btn-jupyter btn-lg" type="submit" data-sitekey='{{hcaptcha_site_key}}' h-captcha-response="Test" value="Log in">Log in</button>
+  {% else %}
+  <div class="h-captcha" data-sitekey='{{hcaptcha_site_key}}' data-callback=submit></div>
+  {% endif %} 
 </form> 
+{% endblock login_container %}
+</div>
 
 {% endblock main %} 
